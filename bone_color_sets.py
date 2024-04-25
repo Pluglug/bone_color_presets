@@ -8,7 +8,7 @@ from bpy.props import (
     CollectionProperty,
 )
 
-from . addon import get_addon_preferences, get_user_preferences
+from . addon import get_addon_preferences, get_user_preferences, ADDON_ID, ADDON_VERSION, ADDON_PATH
 from . debug_utils import Log, DBG_OPS, DBG_JSON
 
 import json
@@ -190,63 +190,90 @@ class BONECOLOR_OT_remove_preset(Operator):
         
         pr.bcs_presets.remove(pr.active_bcs_preset_index)
     
+import os
 
-class BONECOLOR_OT_save_to_file(Operator):
-    """Save presets to a file"""
-    bl_idname = "bonecolor.save_to_file"
-    bl_label = "Save Presets to File"
+class EXPORT_OT_bone_color_preset(Operator):
+    """Export bone color presets to a file"""
+    bl_idname = "bonecolor.export_preset"
+    bl_label = "Export Bone Color Presets"
     bl_options = {'REGISTER', 'UNDO'}
 
     filepath: StringProperty(
-        name="File Path",
         subtype='FILE_PATH',
+        default="",    
     )
+    filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
 
     def execute(self, context):
-        try:
-            return self.save_to_file(context)
-        except Exception as e:
-            Log.error(f"Failed to save presets to file: {e}")
-            self.report({'ERROR'}, f"Failed to save presets to file: {e}")
-            return {'CANCELLED'}
-
-    def save_to_file(self, context):
         pr = get_addon_preferences(context)
-        pr.bcs_presets.save_to_file(self.filepath)
-        self.report({'INFO'}, f"Saved presets to file: {self.filepath}")
+        target_preset = pr.bcs_presets[pr.active_bcs_preset_index]
+
+        data = {
+            "addon": ADDON_ID,
+            "version": f"{ADDON_VERSION[0]}.{ADDON_VERSION[1]}.{ADDON_VERSION[2]}",
+            "name": target_preset.name,
+            "presets": [cs.as_dict() for cs in target_preset.color_sets]
+        }
+
+        with open(self.filepath, 'w') as f:
+            json.dump(data, f, indent=4)
+
+        self.report({'INFO'}, f"Exported bone color presets to {self.filepath}")
         return {'FINISHED'}
     
     def invoke(self, context, event):
+        pr = get_addon_preferences(context)
+        target_preset = pr.bcs_presets[pr.active_bcs_preset_index]
+        export_dir = os.path.join(ADDON_PATH, "My Presets")
+        if not os.path.exists(export_dir):
+            os.makedirs(export_dir)
+        self.filepath = os.path.join(export_dir, f"{target_preset.name}.json")
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 
-class BONECOLOR_OT_load_from_file(Operator):
-    """Load presets from a file"""
-    bl_idname = "bonecolor.load_from_file"
-    bl_label = "Load Presets from File"
+class IMPORT_OT_bone_color_preset(Operator):
+    """Import bone color presets from a file"""
+    bl_idname = "bonecolor.import_preset"
+    bl_label = "Import Bone Color Presets"
     bl_options = {'REGISTER', 'UNDO'}
 
     filepath: StringProperty(
-        name="File Path",
         subtype='FILE_PATH',
+        default="",    
     )
+    filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
 
     def execute(self, context):
-        try:
-            return self.load_from_file(context)
-        except Exception as e:
-            Log.error(f"Failed to load presets from file: {e}")
-            self.report({'ERROR'}, f"Failed to load presets from file: {e}")
+        with open(self.filepath, 'r') as f:
+            data = json.load(f)
+
+        if "addon" not in data or data["addon"] != ADDON_ID:
+            self.report({'ERROR'}, "Invalid bone color preset file")
             return {'CANCELLED'}
 
-    def load_from_file(self, context):
+        if "version" not in data or data["version"] != f"{ADDON_VERSION[0]}.{ADDON_VERSION[1]}.{ADDON_VERSION[2]}":
+            self.report({'WARNING'}, "Incompatible bone color preset version")
+            # Implement handling for future versions here
+            # e.g., if file_version > (1, 0, 0): handle new data format
+
         pr = get_addon_preferences(context)
-        pr.bcs_presets.load_from_file(self.filepath)
-        self.report({'INFO'}, f"Loaded presets from file: {self.filepath}")
+        target_preset = pr.bcs_presets.add()
+        target_preset.name = data["name"]
+        for cs_data in data["presets"]:
+            cs = target_preset.color_sets.add()
+            cs.from_dict(cs_data)
+
+
+        self.report({'INFO'}, f"Imported bone color presets from {self.filepath}")
         return {'FINISHED'}
     
     def invoke(self, context, event):
+
+        export_dir = os.path.join(ADDON_PATH, "My Presets")
+        if not os.path.exists(export_dir):
+            os.makedirs(export_dir)
+        self.filepath = os.path.join(export_dir, "")
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -257,8 +284,8 @@ classes = (
     BONECOLOR_OT_save_preset,
     BONECOLOR_OT_load_preset,
     BONECOLOR_OT_remove_preset,
-    BONECOLOR_OT_save_to_file,
-    BONECOLOR_OT_load_from_file,
+    EXPORT_OT_bone_color_preset,
+    IMPORT_OT_bone_color_preset,
 )
 
 register, unregister = bpy.utils.register_classes_factory(classes)

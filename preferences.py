@@ -46,6 +46,10 @@ def _draw_presets(self, context):
         row.operator("bonecolor.remove_preset", icon='TRASH', text="Remove Preset")
         row.operator("bonecolor.load_preset", icon='IMPORT', text="Load Preset")
 
+    subrow = box.row()
+    subrow.operator("bonecolor.export_preset", icon='EXPORT', text="Export Presets")
+    subrow.operator("bonecolor.import_preset", icon='IMPORT', text="Import Presets")
+
     layout.separator()
 
 
