@@ -8,13 +8,13 @@ from bpy.props import (
     CollectionProperty,
 )
 
-from . addon import get_addon_preferences, get_user_preferences, ADDON_ID, ADDON_VERSION, ADDON_PATH
+from . addon import prefs, uprefs, ADDON_ID, ADDON_VERSION, ADDON_PATH
 from . debug_utils import Log, DBG_OPS, DBG_JSON
 
 import json
 
 
-class CustomBoneColorSet(PropertyGroup):
+class BCSPresetItem(PropertyGroup):
     normal: FloatVectorProperty(
         name="Normal",
         subtype='COLOR',
@@ -43,14 +43,14 @@ class CustomBoneColorSet(PropertyGroup):
     )
 
     def copy_from(self, other):
-        """Copy color settings from another CustomBoneColorSet."""
+        """Copy color settings from another BCSPresetItem."""
         self.normal = other.normal[:]
         self.select = other.select[:]
         self.active = other.active[:]
         self.show_colored_constraints = other.show_colored_constraints
     
     def copy_to(self, other):
-        """Copy color settings to another CustomBoneColorSet."""
+        """Copy color settings to another BCSPresetItem."""
         other.normal = self.normal[:]
         other.select = self.select[:]
         other.active = self.active[:]
@@ -71,8 +71,8 @@ class CustomBoneColorSet(PropertyGroup):
         self.show_colored_constraints = data["show_colored_constraints"]
 
 
-class CustomBoneColorSets(PropertyGroup):
-    color_sets: CollectionProperty(type=CustomBoneColorSet)
+class BCSPresets(PropertyGroup):
+    color_sets: CollectionProperty(type=BCSPresetItem)
     name: StringProperty(default="Custom Bone Color Sets")
 
     def add_color_sets(self, theme):
@@ -113,7 +113,7 @@ class BONECOLOR_OT_save_preset(Operator):
 
     @classmethod
     def poll(cls, context):
-        theme = get_user_preferences(context).themes[0]
+        theme = uprefs(context).themes[0]
         return hasattr(theme, "bone_color_sets")
 
     def execute(self, context):
@@ -125,8 +125,8 @@ class BONECOLOR_OT_save_preset(Operator):
             return {'CANCELLED'}
 
     def save_preset(self, context):
-        theme = get_user_preferences(context).themes[0]
-        pr = get_addon_preferences(context)
+        theme = uprefs(context).themes[0]
+        pr = prefs(context)
         
         new_preset = pr.bcs_presets.add()
         new_preset.add_color_sets(theme)
@@ -145,8 +145,8 @@ class BONECOLOR_OT_load_preset(Operator):
 
     @classmethod
     def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.active_bcs_preset_index >= 0
+        pr = prefs(context)
+        return pr.active_bcs_preset_index >= 0
 
     def execute(self, context):
         try:
@@ -157,8 +157,8 @@ class BONECOLOR_OT_load_preset(Operator):
             return {'CANCELLED'}
 
     def load_preset(self, context):
-        theme = get_user_preferences(context).themes[0]
-        pr = get_addon_preferences(context)
+        theme = uprefs(context).themes[0]
+        pr = prefs(context)
 
         source_preset = pr.bcs_presets[pr.active_bcs_preset_index]
         source_preset.restore_color_sets(theme)
@@ -175,8 +175,8 @@ class BONECOLOR_OT_remove_preset(Operator):
 
     @classmethod
     def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.active_bcs_preset_index >= 0
+        pr = prefs(context)
+        return pr.active_bcs_preset_index >= 0
 
     def execute(self, context):
         try:
@@ -186,7 +186,7 @@ class BONECOLOR_OT_remove_preset(Operator):
             return {'CANCELLED'}
 
     def remove_preset(self, context):
-        pr = get_addon_preferences(context)
+        pr = prefs(context)
         
         pr.bcs_presets.remove(pr.active_bcs_preset_index)
     
@@ -205,7 +205,7 @@ class EXPORT_OT_bone_color_preset(Operator):
     filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
 
     def execute(self, context):
-        pr = get_addon_preferences(context)
+        pr = prefs(context)
         target_preset = pr.bcs_presets[pr.active_bcs_preset_index]
 
         data = {
@@ -222,7 +222,7 @@ class EXPORT_OT_bone_color_preset(Operator):
         return {'FINISHED'}
     
     def invoke(self, context, event):
-        pr = get_addon_preferences(context)
+        pr = prefs(context)
         target_preset = pr.bcs_presets[pr.active_bcs_preset_index]
         export_dir = os.path.join(ADDON_PATH, "My Presets")
         if not os.path.exists(export_dir):
@@ -257,7 +257,7 @@ class IMPORT_OT_bone_color_preset(Operator):
             # Implement handling for future versions here
             # e.g., if file_version > (1, 0, 0): handle new data format
 
-        pr = get_addon_preferences(context)
+        pr = prefs(context)
         target_preset = pr.bcs_presets.add()
         target_preset.name = data["name"]
         for cs_data in data["presets"]:
@@ -279,8 +279,8 @@ class IMPORT_OT_bone_color_preset(Operator):
 
 
 classes = (
-    CustomBoneColorSet,
-    CustomBoneColorSets,
+    BCSPresetItem,
+    BCSPresets,
     BONECOLOR_OT_save_preset,
     BONECOLOR_OT_load_preset,
     BONECOLOR_OT_remove_preset,

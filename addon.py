@@ -16,7 +16,8 @@ ICON_ENUM_ITEMS = bpy.types.UILayout.bl_rna.functions[
 SINCE_4_0_0 = bpy.app.version >= (4, 0, 0)
 
 
-def get_user_preferences(context=bpy.context):
+def uprefs(context=bpy.context):
+    """Get User Preferences."""
     preferences = getattr(context, "preferences", None)
     if preferences is not None:
         return preferences
@@ -24,8 +25,9 @@ def get_user_preferences(context=bpy.context):
         raise AttributeError("Unable to access preferences")
 
 
-def get_addon_preferences(context=bpy.context):
-    user_prefs = get_user_preferences(context)
+def prefs(context=bpy.context):
+    """Get Addon Preferences."""
+    user_prefs = uprefs(context)
     addon_prefs = user_prefs.addons.get(ADDON_ID)
     if addon_prefs is not None:
         return addon_prefs.preferences
